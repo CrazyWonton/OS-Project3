@@ -1,0 +1,96 @@
+Author: Kevin Tarczali
+Date: 12 November 2017
+Course: CS 350
+
+				Assignment 3
+__________________________________________________________________________________
+Part A:
+
+During the lab I played around with making named pipes using the
+mkfifo command. I noticed that if you use the ls command afterward,
+the named pipe will show up in the list of files in that directory.
+
+__________________________________________________________________________________
+Part B:
+
+1)Run one consumer and one producer concurrently.
+	Writing: 29160312Bytes written: 4
+	In the terminal running the producer, I see that it is writing
+	a 4 byte number (int) to the pipe. With each iteration, it is
+	incrementing the number it is writing to the pipe.
+	
+	Number read: 29160312Bytes read: 4
+	In the terminal running the consumer, I see that it is reading
+	a 4 byte number (int) from the pipe. With each iteration, the
+	number is increasing by 1.
+
+	This tells me that the producer is writing a number to the
+	named pipe and the consumer is reading that same number.
+
+
+2)Kill the producer with Ctrl-C. Leave consumer running. What happens and why?
+	error reading ret=0 errno=0 perror: Success
+	This example illustrates the producer/consumer problem. In this case
+	the producer has stopped writing data to the pipe, so when the
+	consumer tries to read data there is nothing there. In this case
+	read returns 0, which is the number of bytes read from the pipe.
+	
+
+3)Kill the consumer with Ctrl-C. Leave producer running. What happens and why?
+	error writing ret=-1 errno=32 perror: Broken pipe
+	When the producer tries writing to the pipe but there is no consumer
+	to read it, it returns -1 and sets errno to the Broken Pipe error.
+	
+
+4)Run one consumer and multiple producers concurrently.
+	Number read: 297383Bytes read: 4
+	Number read: 297323Bytes read: 4
+	With 2 producers and 1 consumer, the consumer reads both values from that
+	are written to the pipe.
+
+	Number read: 2977436Bytes read: 4
+	Number read: 2978211Bytes read: 4
+	Number read: 29738140Bytes read: 4
+	Number read: 29732140Bytes read: 4
+	With 4 producers and 1 consumer, the consumer still reads all 4 values
+	that are written to the pipe.
+
+	With 9 producers and 1 consumer, the consumer still seems to be reading
+	all values that are being written to the pipe.
+
+	For the consumer, whenever there is data written to the pipe, it will
+	read it. Unless there is an overflow on the pipe, I doubt that the
+	consumer would ever fail to read values from the pipe.
+
+
+5)Run multiple consumers and one producer concurrently.
+	Number read: 3001516Bytes read: 4
+	Number read: 3001519Bytes read: 4
+	In this case, with 1 producer and only 2 consumers, I can already see
+	issues with the pipe. Because the consumers are competing to read data
+	from the pipe, it is random as to which consumer gets to read the value.
+	That is why, like in the example above, one consumer is not able to read
+	all values.
+
+
+6)Run multiple consumers and multiple producers concurrently.
+	In this case I have 4 consumers and 4 producers running concurrently. I
+	am noticing that the producers are running just fine and each writing
+	data every second. However the consumers are having a hard time sharing
+	the pipe. In some cases one consumer may read all the values written to
+	the pipe for a duration of time, in other cases each takes turns for a
+	few seconds and reads values from the pipe.
+
+	Because there are no locks or semaphores on the pipe, producers keep
+	writing to the pipe regardless if it is full or not. Similarly, the
+	consumers will keep reading continuously. This may result in data
+	loss when reading or writing.
+
+__________________________________________________________________________________
+
+Plan for Part C:
+
+To solve the problems seen in Part B, I plan on placing a lock on the pipe and
+having the consumers/producers take turns. I will use a semaphore to regulate
+access to this lock. I will have to look over the slides, book, and Google for
+how to actually implement this.
