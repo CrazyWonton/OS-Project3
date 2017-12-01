@@ -23,7 +23,8 @@ char* device_name = "numpipe";
 //static int string_char_count;
 
 /*read and write index in the buffer*/
-static int read_index = 0, write_index = 0;
+static int read_index = 0;
+static int write_index = 0;
 
 /*number of empty slots in the buffer
   need at least 1 empty slot to write
@@ -40,12 +41,6 @@ static struct semaphore write_op_mutex;
 
 /*getting buffer size from command line*/
 module_param(buffer_size, int, 0000);
-
-/*getting device_name from command line*/
-//module_param(device_name, charp, 0000);
-
-/*getting string_char_count*/
-//module_param(string_char_count, int, 0000);
 
 /*buffer to store strings*/
 int* buffer;
@@ -84,7 +79,7 @@ int init_module(){
 	printk(KERN_INFO "buffer size: %d\n", buffer_size);
 	printk(KERN_INFO "--------------\n");
 
-	/*allocating memory for the buffer. 2d array*/
+	/*allocating memory for the buffer array*/
 	int _allocated = 0;
 	buffer = (int*)kmalloc(buffer_size*sizeof(int), GFP_KERNEL);
 	while(_allocated < buffer_size){
@@ -101,15 +96,12 @@ int init_module(){
 
 	/*initializing buffer_empty_slots to buffer size*/
 	buffer_empty_slots = buffer_size;
-	/*initializing the number of open devices to 0*/
-	//open_count = 0;
+
 	return 0;
 }
 
 /*function is called when device is opened*/
 static int my_open(struct inode* _inode, struct file* _file){
-	/*incrementing the number of open devices*/
-	//++open_count;
 	return 0;
 }
 
@@ -126,7 +118,7 @@ static ssize_t my_read(struct file* _file, char* user_buffer, size_t number_of_c
 		if(buffer_empty_slots >= buffer_size){
 			break;
 		}
-		copy_to_user(&user_buffer[user_buffer_index], &buffer[read_index], 1);
+		copy_to_user(&user_buffer[user_buffer_index], &buffer[read_index], 4);
 	}
 	++read_index;
 	++buffer_empty_slots;
@@ -149,7 +141,7 @@ static ssize_t my_write(struct file* _file, const char* user_buffer, size_t numb
 		if(buffer_empty_slots <= 0){
 			break;
 		}
-		copy_from_user(&buffer[write_index], &user_buffer[user_buffer_index], 1);
+		copy_from_user(&buffer[write_index], &user_buffer[user_buffer_index], 4);
 	}
 	++write_index;
 	--buffer_empty_slots;
@@ -160,8 +152,6 @@ static ssize_t my_write(struct file* _file, const char* user_buffer, size_t numb
 
 /*function that is called when device is closed*/
 static int my_release(struct inode* _inode, struct file* _file){
-	/*decrementing the number of open devices*/
-	//--open_count;
 	return 0;
 }
 
