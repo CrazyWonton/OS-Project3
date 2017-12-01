@@ -13,17 +13,14 @@
 /*misc device struct*/
 static struct miscdevice my_device;
 
-/*number of open devices*/
-//static int open_count;
-
 /*buffer size to store the characters*/
 static int buffer_size;
 
 /*string to store device name*/
-char* device_name;
+char* device_name = "numpipe";
 
 /*number of characters in each string.*/
-static int string_char_count;
+//static int string_char_count;
 
 /*read and write index in the buffer*/
 static int read_index = 0, write_index = 0;
@@ -45,10 +42,10 @@ static struct semaphore write_op_mutex;
 module_param(buffer_size, int, 0000);
 
 /*getting device_name from command line*/
-module_param(device_name, charp, 0000);
+//module_param(device_name, charp, 0000);
 
 /*getting string_char_count*/
-module_param(string_char_count, int, 0000);
+//module_param(string_char_count, int, 0000);
 
 /*buffer to store strings*/
 int* buffer;
@@ -70,16 +67,14 @@ static struct file_operations my_device_fops = {
 /*initialize module, allocate memory, initialize semaphores ...*/
 int init_module(){
 	/*initializing parameters for my_device*/
-	my_device.name = device_name;
+	my_device.name = "numpipe";
 	my_device.minor = MISC_DYNAMIC_MINOR;
 	my_device.fops = &my_device_fops;
 
 	/*registering the device*/
 	int register_return_value;
 	if((register_return_value = misc_register(&my_device))){
-		/*misc_register() returns
-0: success
--ve: failure*/
+		/*misc_register() returns 0: successve: failure*/
 		printk(KERN_ERR "Could not register the device\n");
 		return register_return_value;
 	}
@@ -94,7 +89,7 @@ int init_module(){
 	buffer = (int*)kmalloc(buffer_size*sizeof(int), GFP_KERNEL);
 	while(_allocated < buffer_size){
 		//buffer[_allocated] = (int)kmalloc(sizeof(int), GFP_KERNEL);
-		buffer[] = 0;
+		buffer[_allocated] = 0;
 		++_allocated;
 	}
 
@@ -131,7 +126,7 @@ static ssize_t my_read(struct file* _file, char* user_buffer, size_t number_of_c
 		if(buffer_empty_slots >= buffer_size){
 			break;
 		}
-		copy_to_user(&user_buffer[user_buffer_index], &buffer[read_index][user_buffer_index], 1);
+		copy_to_user(&user_buffer[user_buffer_index], &buffer[read_index], 1);
 	}
 	++read_index;
 	++buffer_empty_slots;
@@ -154,7 +149,7 @@ static ssize_t my_write(struct file* _file, const char* user_buffer, size_t numb
 		if(buffer_empty_slots <= 0){
 			break;
 		}
-		copy_from_user(&buffer[write_index][user_buffer_index], &user_buffer[user_buffer_index], 1);
+		copy_from_user(&buffer[write_index], &user_buffer[user_buffer_index], 1);
 	}
 	++write_index;
 	--buffer_empty_slots;

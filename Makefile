@@ -1,3 +1,10 @@
+obj-m = numpipe.o
+
+KBUILD_CFLAGS += -w
+
 all:
-	gcc -o consumer consumer.c
-	gcc -o producer producer.c
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules $(KBUILD_CFLAGS)
+	gcc producer.c -o producer.o
+	gcc consumer.c -o consumer.o
+clean:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
