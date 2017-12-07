@@ -16,10 +16,10 @@ char* deviceName = "numpipe";
 static int rIndex = 0;
 static int wIndex = 0;
 static int buffUsed;
-static DEFINE_SEMAPHORE(full);
-static DEFINE_SEMAPHORE(empty);
-static DEFINE_MUTEX(mut);
-module_param(buffSize, int, 0);
+static DEFINE_SEMAPHORE(full);  //Declare and initialize semaphore to 1
+static DEFINE_SEMAPHORE(empty);  //Declare and initialize semaphore to 1
+static DEFINE_MUTEX(mut);       //initialize mutex as unlocked
+module_param(buffSize, int, 0); //perameter passed in with insmod
 int* buffer;
 
 static int open(struct inode*, struct file*);
@@ -27,6 +27,7 @@ static ssize_t read(struct file*, char*, size_t, loff_t*);
 static ssize_t write(struct file*, const char*, size_t, loff_t*);
 static int release(struct inode*, struct file*);
 
+//available operations for this device
 static struct file_operations fops = {
         .open = &open,
         .read = &read,
@@ -39,19 +40,19 @@ int init_module(){
         myDevice.minor = MISC_DYNAMIC_MINOR;
         myDevice.fops = &fops;
         int retVal;
-        if((retVal = misc_register(&myDevice))){
+        if((retVal = misc_register(&myDevice))){ //return > 0 indicates failure
                 printk(KERN_ERR "Could not register the device\n");
                 return retVal;
         }
         printk(KERN_INFO "%s registered with buffer size %d\n", deviceName,buffSize);
         int i = 0;
-        buffer = (int*)kmalloc(buffSize*sizeof(int), GFP_KERNEL);
+        buffer = (int*)kmalloc(buffSize*sizeof(int), GFP_KERNEL);  //allocate buffSize bytes to normal kernel memory
         for(;i < buffSize;i++)
-                buffer[i] = 0;
-        sema_init(&full, 0);
-        sema_init(&empty, buffSize);
-        mutex_init(&mut);
-        buffUsed = 0;
+                buffer[i] = 0;  //scrub data
+        sema_init(&full, 0);   //semaphore initialized to 0
+        sema_init(&empty, buffSize); //semaphore initialized to buffSize
+        mutex_init(&mut); //mutex initialized as unlocked again
+        buffUsed = 0;  //amount of buffer used is 0
         return 0;
 }
 
@@ -60,21 +61,27 @@ static int open(struct inode* n, struct file* file){
 }
 
 static ssize_t read(struct file* file, char* uBuffer, size_t length, loff_t* offset){
-        if (down_interruptible(&full)){
+        //down decrements the semaphore and waits as long as it needs to
+        //down interruptible is the same except interuptable, allows the user to interrupt process
+        //      that is waiting on the semaphore
+        //error check must exist because we are using down_inter.., if interrupted returns !0 value
+        if (down_interruptible(&full)){  //first check if it can gain access to read from the buffer
                 return -EINTR;
         }
-        if (mutex_lock_interruptible(&mut)){
+        if (mutex_lock_interruptible(&mut)){ //then try to gain access to this mutex
                 return -EINTR;
         }
+        //critical section
         rIndex %= buffSize;
         if(buffUsed > 0)
+                //
                 if(copy_to_user(uBuffer, &buffer[rIndex], 4)){
                         return -EFAULT;
                 }
         rIndex++;
         buffUsed--;
-        mutex_unlock(&mut);
-        up(&empty);
+        mutex_unlock(&mut); //unlocks section
+        up(&empty); //
         return length;
 }
 
