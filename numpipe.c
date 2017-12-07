@@ -66,7 +66,7 @@ static ssize_t read(struct file* file, char* uBuffer, size_t length, loff_t* off
         //      that is waiting on the semaphore
         //error check must exist because we are using down_inter.., if interrupted returns !0 value
         if (down_interruptible(&full)){  //first check if it can gain access to read from the buffer
-                return -EINTR;
+                return -EINTR;           //down on the "read" semaphore
         }
         if (mutex_lock_interruptible(&mut)){ //then try to gain access to this mutex
                 return -EINTR;
@@ -74,33 +74,39 @@ static ssize_t read(struct file* file, char* uBuffer, size_t length, loff_t* off
         //critical section
         rIndex %= buffSize;
         if(buffUsed > 0)
-                //
+                //sends info from kernel space to user space
                 if(copy_to_user(uBuffer, &buffer[rIndex], 4)){
                         return -EFAULT;
                 }
-        rIndex++;
-        buffUsed--;
+        rIndex++; //increment read head
+        buffUsed--; //consumed input decrements the amount of data in the buffer
         mutex_unlock(&mut); //unlocks section
-        up(&empty); //
+        up(&empty); //up on the "write" semaphore, wakes up processes waiting to write
         return length;
 }
 
 static ssize_t write(struct file* file, const char* uBuffer, size_t length, loff_t* offset){
-        if (down_interruptible(&empty)){
+        //down decrements the semaphore and waits as long as it needs to
+        //down interruptible is the same except interuptable, allows the user to interrupt process
+        //      that is waiting on the semaphore
+        //error check must exist because we are using down_inter.., if interrupted returns !0 value
+        if (down_interruptible(&empty)){ //first check if it can gain access to write to the buffer
+                return -EINTR;           //down on "write" semaphore
+        }
+        if (mutex_lock_interruptible(&mut)){ //gain access to critical section
                 return -EINTR;
         }
-        if (mutex_lock_interruptible(&mut)){
-                return -EINTR;
-        }
+        //critical section
         wIndex %= buffSize;
         if(buffUsed < buffSize)
+                //reads user space info and copies it to kernel space
                 if(copy_from_user(&buffer[wIndex], uBuffer, 4)){
                         return -EFAULT;
                 }
-        wIndex++;
-        buffUsed++;
-        mutex_unlock(&mut);
-        up(&full);
+        wIndex++; //incrememnt the write head
+        buffUsed++; //producing input increments the amount of data in the buffer
+        mutex_unlock(&mut); //unlock section
+        up(&full); //up on the "read" semaphore, wakes up processes waiting to read 
         return length;
 }
 
